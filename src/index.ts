@@ -21,8 +21,6 @@ app.post("/mint", (req: Request, res: Response) => {
 });
 
 app.listen(port, async () => {
-  const address = await getAddress();
-  console.log(`[server]: Address is ${address}`);
   mint();
   console.log(`[server]: Server is running at http://localhost:${port}`);
 });
