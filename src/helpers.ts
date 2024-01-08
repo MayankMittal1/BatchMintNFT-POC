@@ -20,7 +20,6 @@ class Semaphore {
     console.log("Sending Tx");
     const elementsTOmint = this.calls.splice(0, 1)[0];
     const userOp = await fuseSDK.executeBatch(elementsTOmint);
-    console.log(userOp);
     await userOp?.wait()
     console.log("Minted NFT!", userOp?.userOpHash);
     this.minting = false;
