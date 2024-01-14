@@ -1,78 +1,44 @@
-import { txQueue } from ".";
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "ethers";
 import { ABI } from "./abi/ERC721";
 import { FuseSDK } from "@fuseio/fusebox-web-sdk";
 import dotenv from "dotenv";
 import { parseEther } from "ethers/lib/utils";
+import { Variables } from "@fuseio/fusebox-web-sdk/dist/src/constants/variables";
 dotenv.config();
-interface ICall {
-  to: string;
-  value: BigNumber;
-  data: string;
-}
-class Semaphore {
-  public calls: Array<Array<ICall>> = [];
-  private minting = false;
-  private tryNext = async () => {
-    if (this.minting) return;
-    if (this.calls.length === 0) return;
-    this.minting = true;
-    console.log("Sending Tx");
-    const elementsTOmint = this.calls.splice(0, 1)[0];
-    const userOp = await fuseSDK.executeBatch(elementsTOmint);
-    const tx = await userOp?.wait()
-    console.log("Minted NFT!", tx?.transactionHash);
-    this.minting = false;
-    this.checkNext();
-  };
-  public checkNext = () => {
-    if (this.minting) return;
-    if (this.calls.length === 0) return;
-    this.tryNext();
-  };
+
+export let fuseSDK: FuseSDK;
+const NFTAddress = process.env.CONTRACT_ADDRESS ?? "";
+const NFTContract = new ethers.Contract(NFTAddress, ABI);
+const withPaymaster = Boolean(process.env.WITH_PAYMASTER) ?? false;
+const waitIntervalMs = process.env.WAIT_INTERVAL_MILLISECOND ?? "";
+const useNonceSequence = Boolean(process.env.USE_NONCE_SEQUENCE) ?? false;
+
+const bgYellow = (input: any) => '\x1b[43m' + input + '\x1b[0m';
+const bgGreen = (input: any) => '\x1b[42m' + input + '\x1b[0m';
+
+const privateKey = process.env.PRIVATE_KEY ?? "";
+const publicApiKey = process.env.PUBLIC_API_KEY ?? "";
+const credentials = new ethers.Wallet(privateKey);
+
+export const init = async () => {
+  fuseSDK = await FuseSDK.init(publicApiKey, credentials, { withPaymaster });
+  fuseSDK.client.waitIntervalMs = Number(waitIntervalMs);
+  return fuseSDK;
 }
 
-let fuseSDK: FuseSDK;
-let semaphore: Semaphore;
-const NFTAddress: string = process.env.CONTRACT_ADDRESS || "";
-const NFTContact = new ethers.Contract(NFTAddress, ABI);
+export const mint = async (to: string) => {
+  const value = parseEther("0");
+  const data = ethers.utils.arrayify(NFTContract.interface.encodeFunctionData("safeMint", [to]));
 
-const credentials = new ethers.Wallet(process.env.PRIVATE_KEY as string);
-const publicApiKey = process.env.PUBLIC_API_KEY || "";
+  const txOptions = { ...Variables.DEFAULT_TX_OPTIONS, useNonceSequence };
+  const userOp = await fuseSDK.callContract(NFTAddress, value, data, txOptions);
+  console.log(bgYellow(`UserOp hash: ${userOp?.userOpHash}`));
 
-export const mint = async () => {
-  fuseSDK = await FuseSDK.init(publicApiKey, credentials, {
-    withPaymaster: true,
-  });
-  const address = fuseSDK.wallet.getSender();
-  console.log("Address: ", address);
-  semaphore = new Semaphore();
-  setInterval(async () => {
-    if (txQueue.length === 0) return;
-    mintBatch();
-  }, 5000);
-};
-
-const mintBatch = async () => {
-  return new Promise(async (resolve, reject) => {
-    console.log("Minting NFT!", txQueue.length);
-    const toMint = txQueue.length;
-    const elementsTOmint = txQueue.splice(0, toMint);
-    let calls: Array<ICall> = [];
-    elementsTOmint.forEach((element) => {
-      calls.push({
-        to: NFTAddress,
-        value: parseEther("0"),
-        data: NFTContact.interface.encodeFunctionData("safeMint", [element]),
-      });
-    });
-    semaphore.calls.push(calls);
-    semaphore.checkNext();
-  });
+  const result = await userOp?.wait();
+  console.log(bgGreen(`Transaction hash: ${result?.transactionHash}`))
 };
 
 export const getAddress = async () => {
-  const fuseSDK = await FuseSDK.init(publicApiKey, credentials);
   const address = fuseSDK.wallet.getSender();
   return address;
 };
