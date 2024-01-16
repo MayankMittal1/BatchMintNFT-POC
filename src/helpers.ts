@@ -26,6 +26,23 @@ export const init = async () => {
   return fuseSDK;
 }
 
+export const mintBatch = async (toList: Array<string>) => {
+  const value = parseEther("0");
+  const calls = toList.map((to) => {
+    return {
+      to: NFTAddress,
+      value,
+      data: ethers.utils.arrayify(NFTContract.interface.encodeFunctionData("safeMint", [to])),
+    }
+  });
+  const txOptions = { ...Variables.DEFAULT_TX_OPTIONS, useNonceSequence };
+  const userOp = await fuseSDK.executeBatch(calls, txOptions);
+  console.log(bgYellow(`UserOp hash: ${userOp?.userOpHash}`));
+
+  const result = await userOp?.wait();
+  console.log(bgGreen(`Transaction hash: ${result?.transactionHash}`))
+};
+
 export const mint = async (to: string) => {
   const value = parseEther("0");
   const data = ethers.utils.arrayify(NFTContract.interface.encodeFunctionData("safeMint", [to]));

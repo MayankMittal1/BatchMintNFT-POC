@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
-import { getAddress, init, mint } from "./helpers";
+import { getAddress, init, mint, mintBatch } from "./helpers";
 
 dotenv.config();
 
@@ -12,6 +12,12 @@ export let txQueue: Array<string> = [];
 
 app.get("/", (_, res: Response) => {
   res.send("Batch Mint NFT!");
+});
+
+app.post("/mint_batch", (req: Request, res: Response) => {
+  res.send("Batch Mint NFT!");
+  const { toList } = req.body;
+  mintBatch(toList);
 });
 
 app.post("/mint", (req: Request, res: Response) => {
